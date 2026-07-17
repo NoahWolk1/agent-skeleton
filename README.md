@@ -17,7 +17,7 @@ There are **two main ways** to build on it:
 > LLM loop, writing no code — in the self-contained
 > [`endpoint_wrapper/`](endpoint_wrapper/README.md) subpackage.
 
-When your agent is ready, [`SUBMITTING.md`](SUBMITTING.md) covers what to include
+When your agent is ready, [`HACKATHON.md`](HACKATHON.md) covers what to include
 (README, dependencies, secrets) and how to hand it over.
 
 ---
