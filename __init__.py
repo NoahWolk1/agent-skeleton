@@ -1,47 +1,43 @@
-"""agent_skeleton — a minimal, copy-to-start template for an AgenticNetwork A2A agent.
+"""agent_skeleton — a copy-to-start template for building an A2A agent.
 
-Two ways to build on this skeleton:
+Two main ways to build on this skeleton:
 
-1. Stock template — edit these; everything else is plumbing:
+  Path A — hand-author an LLM tool loop. Edit these; everything else is plumbing:
        tool_schemas.py  — your tools' JSON schemas        (ZONE 1)
        prompt.py        — system prompt + result shape     (ZONE 2)
        tools.py         — your tool functions + registry   (ZONE 4)
        agent.card.json  — your skills & endpoint
+       Verify with `python -m agent_skeleton.serve check`, run with `serve-a2a`.
 
-2. Endpoint wrapper — front an external API with an LLM loop; no code, just a
-   card + an env var:
-       AGENT_ENDPOINT_URL=https://api.example.com/run \\
-       AGENT_ENDPOINT_AUTH_ENV=EXAMPLE_TOKEN \\
-       python -m agent_skeleton.serve serve-wrapper --card my.card.json
-   The AgentSpec seam (spec.py) selects an agent's prompt + tools as DATA, so one
-   frozen engine (llm_loop.run_tool_loop) serves every configuration; system_tools/
-   provides ready-made tools (today: call_endpoint). The generator/ package emits a
-   complete, deployable wrapper-agent folder from an answers.json.
+  Path B — wrap your own code as a custom handler. Subclass AgentHandler and
+       implement one method; run it locally with `serve-handler`:
+       class MyHandler(AgentHandler):
+           async def handle_structured(self, user_input, files=[], context=None) -> dict:
+               return {"answer": "..."}
+       See INTEGRATION_GUIDE.md.
+
+An optional third path — fronting an existing HTTP/API endpoint with an LLM loop —
+lives in the ``agent_skeleton.endpoint_wrapper`` subpackage (self-contained; see its
+own README).
 
 See README.md for the walkthrough and CLAUDE.md for working notes.
 
 Exposed API:
-    AgentSpec, default_demo_spec, endpoint_wrapper_spec  — the spec-driven engine
-    EndpointConfig, make_call_endpoint                   — call an external endpoint
-    AgentHandler, FileInput, HandlerExecutor             — uploaded-code agents
-        (custom-handler path via the registration service)
+    AgentSpec, default_demo_spec, llm_wrapper_spec   — the Path-A spec engine
+    AgentHandler, FileInput, HandlerExecutor          — Path-B custom handlers
 """
 from __future__ import annotations
 
-from .spec import AgentSpec, default_demo_spec, endpoint_wrapper_spec
-from .system_tools.call_endpoint import EndpointConfig, make_call_endpoint
+from .spec import AgentSpec, default_demo_spec, llm_wrapper_spec
 
 __all__ = [
     "AgentSpec",
     "default_demo_spec",
-    "endpoint_wrapper_spec",
-    "EndpointConfig",
-    "make_call_endpoint",
+    "llm_wrapper_spec",
 ]
 
-# Custom-handler API for uploaded agents. Present in the full skeleton; the lean
-# copy the generator vendors into a wrapper agent omits base/handler_executor, so
-# import these defensively.
+# Path-B custom-handler API. Imported defensively so the Path-A engine still
+# imports (and `serve check` still runs) even if base/handler_executor are absent.
 try:
     from .base import AgentHandler, FileInput
     from .handler_executor import HandlerExecutor

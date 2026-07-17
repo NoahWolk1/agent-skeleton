@@ -1,12 +1,12 @@
 # Integration Guide: Turning Your Code Into an Agent
 
-**Who this is for:** you have working code that does something useful (reads a PDF, calls an API, crunches data, runs an LLM loop) and you want to upload it through the **custom registration service** so it becomes an agent other people can use through the planner. You don't need to know how the network works internally — this guide gives you just enough understanding to fill out the form correctly and fast.
+**Who this is for:** you have working code that does something useful (reads a PDF, calls an API, crunches data, runs an LLM loop) and you want to turn it into an agent — this is **Path B** of `agent_skeleton`. You don't rewrite your code; you add one small adapter, run it locally to confirm it works, and hand it over to be wrapped and ingested.
 
 **The 30-second version:**
 1. You do **not** rewrite your code. You add one small **adapter** file (conventionally `handler.py`) that exposes your existing code through a fixed shape the system understands.
 2. That shape is: a class that extends `AgentHandler` and implements one method, `handle_structured(...)`, which returns a dict containing an `"answer"`.
-3. You zip your project (adapter + your code) and fill out a short form (entry file, class name, Python version, requirements, credentials, skills).
-4. An admin approves it, the system wraps it in a web server, and the planner can now discover and call it.
+3. You answer six questions about your code (§3) — that's the part that makes the adapter correct.
+4. You run it locally with `serve-handler` (§9), then hand over your code + adapter; it gets wrapped in a web server and the planner can discover and call it.
 
 ---
 
@@ -122,9 +122,9 @@ Rules and gotchas:
 
 ---
 
-## 5. Fill out the form (field by field)
+## 5. What to hand over (the details we need)
 
-These match the labels you see on the registration page under **Custom (Python)**.
+These are the details whoever wraps your agent needs from you — they map onto a handler plus its config.
 
 | Field | What to put | Why / notes |
 |---|---|---|
@@ -175,14 +175,15 @@ The planner discovers agents **by capability**, not by name. The OASF skills you
 
 ---
 
-## 9. What happens after you upload
+## 9. Run it locally, then hand it over
 
-1. **Registered** — a record is created; nothing runs yet.
-2. **Uploaded** — your code is stored and structurally checked (does the class exist, extend `AgentHandler`, define `handle_structured`?). It is **not executed** during this check.
-3. **Pending admin approval** — because custom agents run real code, a human admin reviews it. It will sit here until approved.
-4. **Approved → live** — the system builds/launches your agent, wraps it in a web server, and publishes it to the directory. Now the planner can call it.
+Test your handler locally **before** handing it over — this catches the Q2/Q3/Q4/Q6 mistakes that otherwise only surface at runtime:
 
-If you're waiting on approval, that's expected — ping whoever administers the deployment.
+```bash
+python -m agent_skeleton.serve serve-handler --file handler.py --class MyAgentHandler --port 9110
+```
+
+That wraps your handler in the same A2A server the deployment uses (heartbeat, runtime cap, file decoding, credentials) and serves it locally. Send it a test request and confirm it returns a dict with an `"answer"`. Then hand over your code + adapter to whoever operates the deployment; because custom code runs real Python, expect a human review before it goes live.
 
 ---
 

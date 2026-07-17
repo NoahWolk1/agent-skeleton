@@ -12,8 +12,7 @@ Design rules (so this stays safe and driftless):
     return a JSON-able dict.
   * The starter set is deliberately PURE and dependency-free (no network, no
     secrets, no filesystem) so it needs no security review. Tools that touch the
-    network or credentials are intentionally deferred to decision D2 in
-    ``docs/WRAPPER_PRESETS_AND_ENDPOINT_MANAGER_PLAN.md``.
+    network or credentials are intentionally kept out of this catalog.
 """
 from __future__ import annotations
 

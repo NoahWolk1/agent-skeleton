@@ -10,8 +10,12 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from agent_skeleton.spec import AgentSpec, multi_endpoint_wrapper_spec
-from agent_skeleton.system_tools.call_endpoint import EndpointConfig, endpoint_tool_name
+from agent_skeleton.spec import AgentSpec
+from agent_skeleton.endpoint_wrapper import (
+    EndpointConfig,
+    endpoint_tool_name,
+    multi_endpoint_wrapper_spec,
+)
 
 _HITS: list[str] = []
 

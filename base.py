@@ -46,8 +46,9 @@ class AgentHandler(ABC):
     """
     Base class for custom uploaded agents.
 
-    Subclass this, implement handle_structured(), upload the file via the
-    registration service UI. The framework handles A2A, ADS, and lifecycle.
+    Subclass this and implement handle_structured(). The framework handles the
+    A2A protocol, file decoding, heartbeats, the runtime cap, and credentials —
+    you write only your logic.
 
     Minimum implementation:
 

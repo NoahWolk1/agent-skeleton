@@ -5,8 +5,7 @@ The list of tools your LLM may call, in OpenAI **Chat Completions** shape:
     {"type": "function",
      "function": {"name": ..., "description": ..., "parameters": <JSON Schema>}}
 
-This is exactly the shape used by disaster_response_agent.py:288-367
-(DISASTER_TOOL_SCHEMAS).
+This is the standard OpenAI Chat Completions tool shape.
 
 Two rules the startup check enforces (tools.validate_tool_registry):
   1. Every `name` here has a matching function in tools.py's TOOL_REGISTRY.
