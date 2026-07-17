@@ -60,8 +60,7 @@ or your agent produces its final answer through the loop (Option A).
 
 ## 5. Send it
 
-Hand over your code + the required files above. Because custom code runs real Python,
-expect a quick human review before it goes live.
+Share a repo with us! 
 
 > **Submit to:** _<owner / channel — fill in>_ · **by:** _<deadline>_
 
