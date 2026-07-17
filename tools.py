@@ -3,13 +3,13 @@
 - Tool BODIES (word_count, reverse_text): your real Python — replace them with
   your agent's actual capabilities. Each takes keyword args named exactly like
   its schema `properties` and returns a JSON-able dict.
-- TOOL_REGISTRY: the {name: function} map. This REPLACES the hand-written
-  if/elif chain in disaster_response_agent.py:679-718. Adding a tool = write a
-  function + add one registry entry + add one schema in tool_schemas.py. The LLM
-  loop dispatches over this registry via ``AgentSpec.dispatch`` (see spec.py).
-- validate_tool_registry(): the startup alignment check the disaster agent
-  never had. It fails fast if a schema and its function disagree, instead of
-  failing silently at runtime as `{"ok": False, "error": ...}`.
+- TOOL_REGISTRY: the {name: function} map. This REPLACES a hand-written if/elif
+  tool chain. Adding a tool = write a function + add one registry entry + add one
+  schema in tool_schemas.py. The LLM loop dispatches over this registry via
+  ``AgentSpec.dispatch`` (see spec.py).
+- validate_tool_registry(): a startup alignment check many hand-rolled agents
+  lack. It fails fast if a schema and its function disagree, instead of failing
+  silently at runtime as `{"ok": False, "error": ...}`.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ TOOL_REGISTRY: dict[str, Callable[..., dict[str, Any]]] = {
 }
 
 
-# --- The alignment check (the gap disaster never closed) -----------------
+# --- The alignment check -----------------
 
 def validate_tool_registry(
     schemas: list[dict[str, Any]] | None = None,

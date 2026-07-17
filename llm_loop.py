@@ -1,7 +1,6 @@
 """ZONE 3 — The LLM tool-calling loop.  (COPY; rarely edit)
 
-The generic Chat Completions tool loop, mirroring
-disaster_response_agent.py:580-677. It is agent-agnostic: you give it a system
+The generic Chat Completions tool loop. It is agent-agnostic: you give it a system
 prompt, a user payload, the tool schemas, and a dispatch function.
 
 WHY IT LOOKS LIKE THIS — vLLM / Chat Completions is STATELESS (there is no
@@ -46,7 +45,6 @@ def build_openai_client() -> Any:
 
 
 def _final_text(response: Any) -> str:
-    # mirrors disaster's _response_text (438-445)
     try:
         content = response.choices[0].message.content
         return str(content).strip() if content else ""
@@ -55,7 +53,6 @@ def _final_text(response: Any) -> str:
 
 
 def _extract_tool_calls(response: Any) -> list[Any]:
-    # mirrors disaster's _extract_function_calls (454-459)
     try:
         tool_calls = response.choices[0].message.tool_calls
         return tool_calls if tool_calls else []

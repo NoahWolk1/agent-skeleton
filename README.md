@@ -1,228 +1,164 @@
-# Agent Skeleton
+# agent_skeleton
 
-A minimal, **copy-to-start template** for building an agent that plugs into
-**AgenticNetwork** (the "Internet of Agents"). It is a faithful, trimmed-down
-distillation of the reference agent `disaster_response_agent.py` (~2,456 lines;
-now in the separate [`agent-directory`](https://github.com/washu-dev/agent-directory)
-repo alongside the other specialist agents) split into small, labeled
-files — so you can see, at a glance, the few pieces you actually write versus the
-plumbing you just keep.
+A small, copy-to-start template for building an **A2A agent**. It hands you the
+~70% of every agent that is plumbing (the LLM loop, the A2A server wiring, request
+parsing, the dual-channel response) so you only write the part that is *your* agent.
 
-> **TL;DR for building an agent:** edit four things — `agent.card.json`,
-> [`tool_schemas.py`](tool_schemas.py), [`tools.py`](tools.py),
-> [`prompt.py`](prompt.py) — and run `python -m agent_skeleton.serve serve-a2a`.
-> The rest is boilerplate that's identical across every agent in the repo.
+There are **two main ways** to build on it:
 
----
+- **Path A — an LLM tool loop.** You supply a system prompt + a set of tools; a
+  frozen engine runs the model-calls-tools loop. Best when the agent's value is
+  reasoning: deciding which tool to call, chaining calls, synthesizing an answer.
+- **Path B — a custom handler.** You already have working code; you wrap it by
+  subclassing `AgentHandler` and implementing one method. Best when you just want
+  existing code reachable as an agent.
 
-## The 10-second mental model
+> There's also an optional third path — front an existing HTTP/API endpoint with an
+> LLM loop, writing no code — in the self-contained
+> [`endpoint_wrapper/`](endpoint_wrapper/README.md) subpackage.
 
-An agent is a **small HTTP service** that does three things:
-
-1. **Advertises skills** via a JSON **card** — and *publishes* that card into the
-   directory (ADS) so the planner can discover it.
-2. Implements **one `execute()` method** — the SDK turns an inbound A2A request
-   into a call to it, hands you the input, and turns what you emit into the
-   response. **You never parse the wire protocol.**
-3. **(Optional)** Calls *other* agents over the same A2A protocol, as tools.
-
-That's it. The planner (the LLM "brain") finds you by skill and delegates whole
-tasks to you. Adding your agent needs **zero planner code changes**.
+When your agent is ready, [`SUBMITTING.md`](SUBMITTING.md) covers what to include
+(README, dependencies, secrets) and how to hand it over.
 
 ---
 
-## File map — the six zones + support
+## Install
 
-| Zone | File | What it is | You… |
-|---|---|---|---|
-| 1 | [`tool_schemas.py`](tool_schemas.py) | Your tools in Chat Completions JSON shape | **WRITE** |
-| 2 | [`prompt.py`](prompt.py) | System prompt + result normalization | **WRITE** |
-| 3 | [`llm_loop.py`](llm_loop.py) | The generic LLM tool-calling loop | copy |
-| 4 | [`tools.py`](tools.py) | Tool functions + `{name: fn}` registry + alignment check | **WRITE** bodies |
-| 5 | [`executor.py`](executor.py) | The A2A executor (`execute()` + I/O helpers) | copy |
-| 6 | [`serve.py`](serve.py) | Serve (uvicorn) + ADS publish/unpublish + CLI | copy |
-| — | [`agent.card.json`](agent.card.json) | Your skills & endpoint | **WRITE** |
-| — | `config.py` | Constants & env vars | edit defaults |
-| — | `a2a_runtime.py` | `a2a-sdk` import guard + Part/TaskUpdater wrappers | copy |
-
-The four bolded rows are your agent. The rest is the same in every agent in this
-repo (which is *why* the originals are thousands of lines — they each re-ship the
-plumbing).
-
----
-
-## Quickstart
+The import package is `agent_skeleton`; this folder is `agent-skeleton`. Install it
+editable so the import name resolves:
 
 ```bash
-# 1. Install deps into a venv/conda env (NOT another component's env)
-pip install a2a-sdk openai uvicorn
-
-# 2. Point at an LLM (hosted OpenAI, or a self-hosted vLLM endpoint)
-export OPENAI_API_KEY=sk-...            # any non-empty placeholder works for vLLM
-# export OPENAI_BASE_URL=http://<vllm-host>:8100/v1   # only for vLLM
-export AGENT_MODEL=gpt-4o-mini          # or your --served-model-name
-
-# 3. Sanity-check that your schemas and functions agree (no LLM needed)
-python -m agent_skeleton.serve check
-# -> OK: tool schemas and functions are aligned.
-
-# 4. Serve it (from the repo root)
-python -m agent_skeleton.serve serve-a2a
-# -> Serving Skeleton Agent on 0.0.0.0:9110 (url=http://127.0.0.1:9110/)
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
 ```
 
-To make it **discoverable** by the planner, publish the card to the directory
-(needs the `dirctl` binary and a running ADS daemon):
+The Path-A **engine** and the `serve check` command run on the standard library
+alone — you can validate an agent without installing anything. `a2a-sdk` + `uvicorn`
+(pulled by `pip install -e .`) are only needed to actually **serve**.
+
+---
+
+## Path A — build an LLM tool loop
+
+Edit four "write" files; leave everything else alone:
+
+| File | You write |
+|---|---|
+| `tool_schemas.py` | `TOOL_SCHEMAS` — a JSON description of each tool (OpenAI Chat Completions shape) |
+| `tools.py` | one Python function per tool + the `TOOL_REGISTRY` `{name: fn}` map |
+| `prompt.py` | `SYSTEM_PROMPT` + `normalize_result()` (the stable output shape) |
+| `agent.card.json` | your agent's name, url, and skills |
+
+The rules that keep a tool correct (checked for you — see below):
+
+- each function's keyword args are named **exactly** like its schema properties;
+- every **optional** property (not in `required`) has a Python default;
+- each function returns a JSON-able dict.
+
+Then verify and run:
 
 ```bash
-python -m agent_skeleton.serve serve-a2a --publish-ads --ads-url 127.0.0.1:8888
-# (recommended alternative for production-grade OASF conversion:)
-python -m agent_directory_service.scripts.publish_agents --card agent_skeleton/agent.card.json
+python -m agent_skeleton.serve check       # validates schemas <-> functions (no deps, no LLM)
+python -m agent_skeleton.serve serve-a2a   # runs the agent over A2A (needs a2a-sdk + uvicorn)
+```
+
+`serve check` is the safety net: it fails fast if a schema and its function
+disagree, in both directions, so you never discover a mismatch at runtime.
+
+For an LLM: set `OPENAI_API_KEY` (any non-empty placeholder for a local vLLM) and
+optionally `OPENAI_BASE_URL`. Against vLLM, launch it with `--enable-auto-tool-choice
+--tool-call-parser <parser>`, or the model silently stops calling tools.
+
+### Path A without editing the template in place
+
+If you'd rather not edit the module globals, build an `AgentSpec` in your own script:
+
+```python
+from agent_skeleton import llm_wrapper_spec
+spec = llm_wrapper_spec(
+    name="My Agent",
+    system_prompt="You are ...",
+    preset_tools=["calculator", "current_time"],   # from system_tools/preset_tools
+)
+# from agent_skeleton.serve import create_app, load_agent_card
+# app = create_app(load_agent_card("agent.card.json"), spec=spec)  # serve under uvicorn
 ```
 
 ---
 
-## Two more ways to use this: endpoint-wrapper mode + the generator
+## Path B — wrap your own code as a handler
 
-Beyond the copy-to-start template above, `agent_skeleton` now also provides a
-**spec-driven engine** so you can stand up agents *without writing tool code*:
+You do **not** rewrite your code — you add a thin adapter class:
 
-- **Endpoint-wrapper mode (no code).** Wrap an external HTTP/JSON (or A2A) endpoint
-  in an LLM loop — the model decides *what* to send; a config fixes *where/how/auth*.
-  The only tool is `call_endpoint` (`system_tools/call_endpoint.py`: env-var auth read
-  at call time, secret redaction, 2 MB response cap, no-redirect). Supply a card +
-  endpoint env vars:
-  ```bash
-  AGENT_ENDPOINT_URL=https://api.example.com/run \
-  AGENT_ENDPOINT_AUTH_ENV=EXAMPLE_TOKEN \
-  python -m agent_skeleton.serve serve-wrapper --card my.card.json
-  ```
-  Under the hood `spec.py`'s `AgentSpec` selects prompt+tools as *data*, so one frozen
-  `run_tool_loop` serves any configuration (`run_agent(spec=...)`).
+```python
+from agent_skeleton import AgentHandler, FileInput
 
-- **Generator (`generator/`).** Turn an `answers.json` describing an endpoint into a
-  complete, deployable agent folder (card + server + Dockerfile + entrypoint + vendored
-  `wrapper_engine/` + README) that self-publishes to ADS — stamping an `oasf:<name>:<id>`
-  routing tag so it's discoverable:
-  ```bash
-  python -m agent_skeleton.generator \
-    --answers agent_skeleton/generator/examples/weather_bridge.answers.json \
-    --dest ../agent-directory
-  ```
-  (`agent-directory/weather-bridge-agent/` is a worked output.)
-
-- **Uploaded-code path.** For arbitrary user code, subclass `AgentHandler` (`base.py`)
-  and implement `handle_structured()`; `HandlerExecutor` / `container_runner.py` run it
-  — this is the lane the registration service's `custom` handler uses.
-
----
-
-## How to build *your* agent (the only steps that matter)
-
-1. **Card** (`agent.card.json`): set `name`, `url`, `version`, and a `skills[]`
-   list. Each skill has a slash-namespaced `id` (e.g. `myagent/do_thing`), a
-   `description`, and `examples`. Tag side-effecting skills `"write"`.
-2. **Tool schemas** (`tool_schemas.py`): one entry per tool, standard Chat
-   Completions shape. List required vs optional params.
-3. **Tool functions** (`tools.py`): write one Python function per tool, with
-   keyword args named exactly like the schema's properties, returning a dict.
-   Add each to `TOOL_REGISTRY`.
-4. **Prompt** (`prompt.py`): write `SYSTEM_PROMPT` (behavior + output contract)
-   and adjust `normalize_result()` to the keys you want to return.
-
-Run `python -m agent_skeleton.serve check` — it will tell you immediately if a
-schema and a function disagree. Then serve.
-
----
-
-## Concepts (the demystified version)
-
-### Request lifecycle — the layering
-
-```
-  HTTP on :9110
-      │
-  uvicorn ................. ASGI HTTP server. Owns the socket, speaks raw HTTP.
-      │
-  Starlette app ........... built by A2AStarletteApplication(card, handler).build()
-      │                     HTTP routing + JSON-RPC / SSE framing.
-  DefaultRequestHandler ... a2a-sdk protocol engine. Parses the JSON-RPC, builds
-      │                     a RequestContext + EventQueue, tracks Task state.
-  YOUR execute(context, event_queue)  ← the only code you write here.
+class MyHandler(AgentHandler):
+    async def handle_structured(self, user_input, files=[], context=None) -> dict:
+        # ... call your real code ...
+        return {"answer": "the human-readable reply"}   # "answer" is REQUIRED
 ```
 
-- **uvicorn** is just the web-server process; it listens on the port and feeds
-  HTTP into the app. Nothing A2A-specific.
-- **`A2AStarletteApplication`** is the `a2a-sdk` class that *builds a Starlette
-  (ASGI) web app for you*. You give it the card + a handler, call `.build()`,
-  and hand the result to uvicorn.
-- **`DefaultRequestHandler`** is the protocol engine: on an inbound request it
-  constructs the `RequestContext` (the message, `task_id`, `context_id`,
-  metadata) and an `EventQueue`, then `await`s your `execute()`.
+- `user_input` is the caller's text; `files` are attached files (`.bytes`,
+  `.name`, `.as_tempfile()`); declare a `context` parameter to receive per-user
+  credentials.
+- If your code is blocking, wrap it in `await asyncio.to_thread(...)` so the
+  heartbeat keeps flowing.
 
-**You never parse raw A2A JSON.** You call `context.get_user_input()` for text,
-read `context.metadata` / DataParts for structured input, and reply through a
-`TaskUpdater`. The wire format is entirely the SDK's job.
+Run it locally:
 
-### The tool loop — why extraction is deterministic
+```bash
+python -m agent_skeleton.serve serve-handler --file handler.py --class MyHandler --port 9110
+```
 
-The LLM never free-texts its tool calls. Because the request sends `tools=...`,
-the model is *constrained* by the API to emit calls as **structured JSON** in
-`response.choices[0].message.tool_calls` (`id` + `function.name` +
-`function.arguments`). The agent reads a typed field — no regex on prose. That's
-why [`llm_loop.py`](llm_loop.py) can extract calls so reliably.
-
-The loop ([`llm_loop.py`](llm_loop.py), `run_tool_loop`):
-
-1. Call the model with `messages` + `tools`.
-2. Read `tool_calls`. None → the model's `content` is the final answer; stop.
-3. Append the assistant message (**with** its `tool_calls`) to history.
-4. For each call: `json.loads(arguments)` → dispatch to your Python function →
-   append a `{"role": "tool", "tool_call_id", "content"}` message.
-5. Re-call the model with the grown history. Repeat (capped at `MAX_TOOL_STEPS`).
-
-**Why resend the whole history?** vLLM / Chat Completions is *stateless* — no
-server-side memory. The agent keeps the conversation locally and resends it each
-step. The required order is `system → user → assistant(with tool_calls) →
-tool-result(s) → …`, which is exactly what step 3-before-4 preserves.
-
-### The response — dual channel
-
-On every terminal path your executor emits **both**:
-- a structured **`DataPart` artifact** (machine-readable — what the planner reads),
-- a **text message** (human-readable), with the same dict echoed under
-  `metadata.structured_output`.
-
-See `_complete` / `_failed` / `_requires_input` in [`executor.py`](executor.py).
-
-### The schema ↔ function alignment check (the improvement)
-
-The real agents have **no** check that a tool's JSON schema matches its Python
-function — a mismatch just fails silently at runtime. This template adds
-`validate_tool_registry()` in [`tools.py`](tools.py), run at startup by
-`create_app` and via `serve.py check`. It verifies every schema has a function,
-every property is a parameter, optional properties have defaults, and there are
-no undeclared required parameters. See *CLAUDE.md → "Closing the gap further"*
-for the even-stronger option (generate schemas *from* typed functions).
+The framework gives you, for free: A2A request parsing, base64 file decoding into
+`FileInput`, a heartbeat (so long calls don't time out), a runtime cap, credential
+injection, error handling, and the dual machine+human response. See
+[`INTEGRATION_GUIDE.md`](INTEGRATION_GUIDE.md) for the full walkthrough (the six
+questions to answer about your code, dependencies, credentials, and a worked example).
 
 ---
 
-## What's genuinely "no-code" vs not
+## File map — where to edit, where not to
 
-- **A coder is required** to write *new capabilities* — the tool function bodies
-  in [`tools.py`](tools.py) are real Python.
-- **A non-coder can plausibly** assemble a **card + schema list + prompt** and
-  *wire existing* tool functions. If the capabilities they need already exist,
-  standing up a new agent is close to no-code.
+**Write (Path A):** `tool_schemas.py`, `tools.py`, `prompt.py`, `agent.card.json`, `config.py` (defaults).
+**Write (Path B):** your `handler.py` (subclass `AgentHandler`).
+**Copy — the frozen plumbing, rarely edited:**
+
+| File | Role |
+|---|---|
+| `llm_loop.py` | the generic Chat-Completions tool loop (`run_tool_loop`, `run_agent`) |
+| `spec.py` | `AgentSpec` — prompt + tools as data; one engine serves many agents |
+| `executor.py` | `SkeletonAgentExecutor` — the Path-A A2A boundary |
+| `handler_executor.py` | `HandlerExecutor` — wraps any `AgentHandler` for A2A (heartbeat, runtime cap, credentials) |
+| `base.py` | `AgentHandler` + `FileInput` (the Path-B contract) |
+| `a2a_runtime.py` | a2a-sdk import guard + `data_part`/`text_part`/`task_updater` |
+| `serve.py` | `create_app` + `check` / `serve-a2a` / `serve-handler` |
 
 ---
 
-## Reference
+## How it works (concepts)
 
-Every zone maps back to the reference implementation, `disaster_response_agent.py`
-— its tool schemas, `_call_model` loop, `_run_tool` dispatch, `execute` executor,
-`create_disaster_a2a_app` serve, and ADS publish helpers. That agent now lives in
-the separate [`agent-directory`](https://github.com/washu-dev/agent-directory) repo
-(the specialist agents were extracted there). Background contracts:
-[`../deployment/AGENT_INTEGRATION_SPEC.md`](../deployment/AGENT_INTEGRATION_SPEC.md)
-and [`../CLAUDE.md`](../CLAUDE.md).
+- **Stateless tool loop.** Chat Completions has no server-side memory, so the loop
+  holds the whole `messages` history locally and resends it each step, appending the
+  assistant's tool-call message *before* the tool results. Tool calls are read from
+  the model's typed `tool_calls` field — never regex-parsed.
+- **Dual-channel response.** Every reply carries a machine-readable `DataPart`
+  (structured output the planner reads) *and* a human-readable text message.
+- **The alignment check** (`tools.validate_tool_registry`) reconciles each tool
+  schema against its function signature; it runs in `create_app` and `serve check`.
+  (A tool that declares `**kwargs` opts out of the check.)
+
+---
+
+## Testing
+
+```bash
+python -m agent_skeleton.serve check                        # schema/function alignment (stdlib only)
+python -m pytest agent_skeleton/tests -q                    # engine tests
+python -m pytest agent_skeleton/endpoint_wrapper/tests -q   # optional endpoint feature
+```
+
+Because `a2a_runtime.py` degrades to a no-op when `a2a-sdk` is absent, you can import
+the package, unit-test tool bodies, and run `serve check` without installing the SDK;
+only serving requires it.

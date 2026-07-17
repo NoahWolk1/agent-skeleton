@@ -7,29 +7,24 @@ name = "agent-skeleton"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    # Pin exactly + include the [http-server] extra: A2AStarletteApplication needs
-    # starlette + sse-starlette (+ fastapi), which live in a2a-sdk's optional
-    # `http-server` extra — the base install omits them, so a freshly-built custom
-    # image raises ImportError at serve time without it. Newer a2a-sdk releases also
-    # moved a2a.server.apps, so pin exactly to the version validated locally / used by ADS.
+    # A2AStarletteApplication needs starlette + sse-starlette (+ fastapi), which
+    # live in a2a-sdk's optional `http-server` extra. Pin exactly: newer a2a-sdk
+    # releases moved a2a.server.apps. Only needed to SERVE — the Path-A engine and
+    # `serve check` import and run without it (see a2a_runtime's import guard).
     "a2a-sdk[http-server]==0.3.2",
     "openai>=1.40",
     "uvicorn>=0.30",
 ]
 
-# pyproject.toml lives *inside* the package directory, so map the
-# `agent_skeleton` import package to "." (this directory) rather than
-# auto-discovering a subdirectory that does not exist. Subpackages must be
-# listed explicitly: with package-dir mapped to ".", setuptools find-discovery
-# would treat system_tools/ and generator/ as *top-level* packages, so we name
-# them here instead. Omitting them installs only the top-level .py files, and
-# `agent_skeleton/__init__.py` imports `.system_tools.call_endpoint`
-# unconditionally — a missing subpackage crashes every built agent image on start.
+# pyproject.toml lives *inside* the package directory, so map the `agent_skeleton`
+# import package to "." (this directory). Subpackages must be listed explicitly:
+# with package-dir mapped to ".", setuptools find-discovery would treat
+# system_tools/ and endpoint_wrapper/ as *top-level* packages, so we name them here.
 [tool.setuptools]
 packages = [
     "agent_skeleton",
     "agent_skeleton.system_tools",
-    "agent_skeleton.generator",
+    "agent_skeleton.endpoint_wrapper",
 ]
 
 [tool.setuptools.package-dir]

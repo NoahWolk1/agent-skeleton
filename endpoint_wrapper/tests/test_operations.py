@@ -14,12 +14,13 @@ import re
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from agent_skeleton.spec import AgentSpec, operation_wrapper_spec
-from agent_skeleton.system_tools.call_endpoint import (
+from agent_skeleton.spec import AgentSpec
+from agent_skeleton.endpoint_wrapper import (
     EndpointConfig,
     OperationConfig,
     make_operation_tool,
     operation_tool_name,
+    operation_wrapper_spec,
 )
 
 # Each hit records what the stub server actually received.
