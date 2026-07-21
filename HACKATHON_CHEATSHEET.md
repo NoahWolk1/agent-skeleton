@@ -62,7 +62,7 @@ or your agent produces its final answer through the loop (Option A).
 
 Share a repo with us! 
 
-> **Submit to:** _<owner / channel — fill in>_ · **by:** _<deadline>_
+> **Submit to:** https://docs.google.com/forms/d/e/1FAIpQLSeBv441FBw2vYyUqdW5Geimq0rxFJW2g0meAIofUOqEW1GgsA/viewform **by:** Wednesday 6:00pm 
 
 ## Checklist
 
