@@ -66,7 +66,7 @@ class AgentHandler(ABC):
         class MyHandler(AgentHandler):
             async def handle_structured(self, user_input, files=[], context=None):
                 creds = (context or {}).get("credentials", {})
-                api_key = creds.get("openai_api_key", {}).get("api_key")
+                api_key = (creds.get("openai_api_key") or {}).get("api_key")
                 ...
 
     ``context`` is injected only for handlers that declare the parameter; 2-arg
