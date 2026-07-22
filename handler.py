@@ -559,7 +559,8 @@ class GeoOrchestratorHandler(AgentHandler):
             "skills_used": list(facts.keys()),
             "sources": _collect_sources(facts),
             "llm_used": llm_used,
-            # machine-readable skill outputs, with long record lists capped (each
-            # skill still reports its own totals/notes) to keep the artifact compact
-            "structured": _trim_lists(facts, 10),
+            # machine-readable skill outputs, with long record lists capped to a
+            # few items (each skill still reports its own totals/notes) to keep
+            # the artifact compact — the human answer above is the concise channel
+            "structured": _trim_lists(facts, 5),
         }
