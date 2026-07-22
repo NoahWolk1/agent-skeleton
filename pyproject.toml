@@ -20,11 +20,19 @@ dependencies = [
 # import package to "." (this directory). Subpackages must be listed explicitly:
 # with package-dir mapped to ".", setuptools find-discovery would treat
 # system_tools/ and endpoint_wrapper/ as *top-level* packages, so we name them here.
+#
+# `skills` is THIS agent's data-source package (imported by handler.py). It is a
+# real top-level directory (./skills), so it is listed here to guarantee it ships
+# with `pip install .` and is importable regardless of the working directory —
+# not only under editable installs. handler.py is the custom-handler entry file
+# and is loaded by path (serve-handler --file handler.py), so it needs no module
+# entry. (`skills.tests` is intentionally omitted — tests aren't shipped.)
 [tool.setuptools]
 packages = [
     "agent_skeleton",
     "agent_skeleton.system_tools",
     "agent_skeleton.endpoint_wrapper",
+    "skills",
 ]
 
 [tool.setuptools.package-dir]
