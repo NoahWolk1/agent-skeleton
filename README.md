@@ -124,10 +124,16 @@ cp .env.example .env                   # add your OPENAI_API_KEY (and BRAVE_API_
 python -m agent_skeleton.serve serve-handler --file handler.py --class GeoOrchestratorHandler --port 9110
 ```
 
-**Configuration (env vars):** `OPENAI_API_KEY` (or credential context),
-`OPENAI_MODEL`/`AGENT_MODEL` (default `gpt-4o-mini`), optional `OPENAI_BASE_URL`,
-`BRAVE_API_KEY`. Without an OpenAI key the agent still runs via a keyword/heuristic
-planner + templated synthesis (degraded, capped at `medium` confidence).
+**Configuration (env vars):** the LLM is any **OpenAI-compatible endpoint** — set
+`OPENAI_BASE_URL`, `OPENAI_MODEL`, and `OPENAI_API_KEY` (or supply the key via the
+credential context). A zero-cost default is **Google Gemini Flash**
+(`OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/`,
+`OPENAI_MODEL=gemini-2.5-flash`, key from [aistudio.google.com](https://aistudio.google.com) — ~1,500 req/day free);
+the same code also runs on hosted OpenAI, a self-hosted vLLM, or Claude (see
+[`.env.example`](.env.example) for each). `BRAVE_API_KEY` powers the research skill.
+**Without any LLM key the agent still runs** via a keyword/heuristic planner +
+templated synthesis (degraded, capped at `medium` confidence). `handler.py`
+auto-loads a local `.env` for convenience (never overriding real deployment env).
 
 ---
 

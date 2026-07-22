@@ -37,6 +37,29 @@ from typing import Any
 from agent_skeleton import AgentHandler, FileInput
 from skills.registry import POINT_SKILLS, catalog_text, run_skill
 
+
+def _load_dotenv() -> None:
+    """Best-effort: load a local .env (in cwd or next to this file) into the
+    environment WITHOUT overriding already-set vars. Convenience for local
+    `serve-handler` runs; a no-op in deployment (no .env shipped, and real
+    injected env/credentials always win via setdefault)."""
+    import pathlib
+
+    for path in (pathlib.Path.cwd() / ".env", pathlib.Path(__file__).resolve().parent / ".env"):
+        try:
+            if not path.is_file():
+                continue
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, val = line.split("=", 1)
+                os.environ.setdefault(key.strip(), val.strip())
+        except Exception:
+            pass
+
+
+_load_dotenv()
 DEFAULT_MODEL = os.getenv("OPENAI_MODEL") or os.getenv("AGENT_MODEL") or "gpt-4o-mini"
 
 # A sensible default skill set for a generic "tell me about this location /
