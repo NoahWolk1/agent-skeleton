@@ -113,6 +113,7 @@ rest is machine-readable structured data returned alongside it:
 | Requirements | see [`requirements.txt`](requirements.txt) (`openai`; `a2a-sdk[http-server]`, `uvicorn` to serve) |
 | System packages | **none** |
 | Required credentials | `openai_api_key` (LLM pipeline); `brave_api_key` (optional, research skill) |
+| Agent card / skills | [`agent.card.json`](agent.card.json) — 4 capability skills with examples: site profile, habitat & species, contamination & quality, hazards & protection |
 
 The importable code (`skills/`) sits at the repo root alongside `handler.py`.
 
@@ -121,8 +122,24 @@ The importable code (`skills/`) sits at the repo root alongside `handler.py`.
 python -m venv .venv && source .venv/bin/activate
 pip install -e .                       # or: pip install -r requirements.txt
 cp .env.example .env                   # add your OPENAI_API_KEY (and BRAVE_API_KEY)
-python -m agent_skeleton.serve serve-handler --file handler.py --class GeoOrchestratorHandler --port 9110
+python -m agent_skeleton.serve serve-handler \
+    --file handler.py --class GeoOrchestratorHandler --card agent.card.json --port 9110
 ```
+
+**Try it over A2A** (exactly what the platform does — discover, then send a message):
+```bash
+# 1) discover the agent + its skills
+curl -s http://127.0.0.1:9110/.well-known/agent-card.json | python3 -m json.tool
+
+# 2) send a request (JSON-RPC message/send); ~30–70s: plan -> run skills -> synthesize -> validate
+curl -s --max-time 180 http://127.0.0.1:9110/ -H 'Content-Type: application/json' -d '{
+  "jsonrpc":"2.0","id":"1","method":"message/send","params":{"message":{
+    "role":"user","messageId":"m1","kind":"message",
+    "parts":[{"kind":"text","text":"What habitat and listed species are at 44.4237, -110.5885?"}]}}}' \
+  | python3 -m json.tool
+```
+The reply is an A2A **Task**: `artifacts[0]` holds the structured result and the
+completed status message carries the human-readable answer.
 
 **Configuration (env vars):** the LLM is any **OpenAI-compatible endpoint** — set
 `OPENAI_BASE_URL`, `OPENAI_MODEL`, and `OPENAI_API_KEY` (or supply the key via the

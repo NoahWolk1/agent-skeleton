@@ -1,13 +1,13 @@
 {
-  "name": "Skeleton Agent",
-  "description": "A template A2A agent that answers requests and can call simple text tools. Replace this with your agent's real capabilities.",
+  "name": "GeoContext Environmental Research Agent",
+  "description": "Give it a location (coordinates or a place name) and an environmental question; it plans which of 17 authoritative geospatial data sources to query (EPA ECHO, USFWS IPaC/NWI, GBIF, iNaturalist, USGS NLCD/3DEP/NWIS, EPA/USGS Water Quality Portal, USGS PAD-US, NIFC, FEMA NFHL, USDA SSURGO, OpenStreetMap, Open-Meteo, Brave), runs them, synthesizes a cited answer, validates it against the gathered facts, and returns both a human-readable answer and reusable structured data. Never fabricates; reports confidence and limitations.",
   "url": "http://127.0.0.1:9110/",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "protocolVersion": "0.3.0",
   "preferredTransport": "JSONRPC",
   "provider": {
-    "organization": "Your Org",
-    "url": "https://example.invalid/your-org"
+    "organization": "WashU DTRC — GeoContext",
+    "url": "https://github.com/NoahWolk1/agent-skeleton"
   },
   "capabilities": {
     "streaming": true,
@@ -20,13 +20,52 @@
   "security": [],
   "skills": [
     {
-      "id": "skeleton/answer",
-      "name": "Answer a request",
-      "description": "Answer a natural-language request, optionally using helper tools, and return a structured answer.",
-      "tags": ["skeleton/answer", "skeleton", "demo", "read"],
+      "id": "site-environmental-profile",
+      "name": "Site environmental profile",
+      "description": "A multi-source profile for a location: land use, contamination sources, terrain, flood risk, and protected status — cited, with limitations noted.",
+      "tags": ["environmental", "geospatial", "gis", "site-assessment", "epa", "fema", "usgs"],
       "examples": [
-        "How many words are in 'the quick brown fox'?",
-        "Reverse the text 'hello world' and upper-case it."
+        "Give me a full site profile for 5700 Arsenal St, St. Louis: contamination, land use, elevation, and flood risk.",
+        "Environmental overview of 44.4237, -110.5885."
+      ],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["text/plain", "application/json"],
+      "security": []
+    },
+    {
+      "id": "habitat-and-species",
+      "name": "Habitat & species assessment",
+      "description": "Land cover/habitat at a point plus ESA-listed species, critical habitat, migratory birds (USFWS IPaC), and species actually recorded nearby (GBIF/iNaturalist). Ideal for camera-trap and habitat-suitability questions.",
+      "tags": ["ecology", "habitat", "species", "biodiversity", "camera-trap", "nlcd", "usfws", "gbif"],
+      "examples": [
+        "What habitat and listed species are at these camera-trap coordinates 44.4237, -110.5885?",
+        "Is this area suitable habitat for the Indiana bat near 38.2, -90.7?"
+      ],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["text/plain", "application/json"],
+      "security": []
+    },
+    {
+      "id": "contamination-and-quality",
+      "name": "Contamination & environmental quality",
+      "description": "EPA-regulated facilities and compliance history (EPA ECHO), nearby water bodies and monitoring (USGS/EPA), and current air quality near a location.",
+      "tags": ["contamination", "pollution", "epa-echo", "air-quality", "water-quality", "environmental-justice"],
+      "examples": [
+        "What contamination sources are near Forest Park, St. Louis?",
+        "Air and water quality around 38.63, -90.20."
+      ],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["text/plain", "application/json"],
+      "security": []
+    },
+    {
+      "id": "hazards-and-protection",
+      "name": "Hazards & protected status",
+      "description": "FEMA flood zone, recorded wildfire history, mapped wetlands, and whether a point is in or near a protected area (parks/refuges/easements, with GAP status).",
+      "tags": ["flood", "wildfire", "wetlands", "protected-areas", "fema", "nifc", "pad-us"],
+      "examples": [
+        "Is 29.95, -90.07 in a FEMA flood zone, and has this area burned before?",
+        "Is 44.42, -110.59 inside a protected area?"
       ],
       "inputModes": ["text/plain", "application/json"],
       "outputModes": ["text/plain", "application/json"],
