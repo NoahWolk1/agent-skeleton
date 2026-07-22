@@ -515,7 +515,7 @@ class GeoOrchestratorHandler(AgentHandler):
         # Feed the LLM a COMPACTED view (summaries + a few items per list), not
         # every raw record — keeps the prompt small/reliable and cheap. Totals
         # and notes live in scalar fields, so they survive the trim.
-        facts_json = json.dumps(_trim_lists(facts, 5), default=str)[:60_000]
+        facts_json = json.dumps(_trim_lists(facts, 12), default=str)[:60_000]
         draft = None
         if client:
             draft = _llm_text(

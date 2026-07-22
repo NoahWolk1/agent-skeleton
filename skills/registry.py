@@ -80,6 +80,19 @@ def catalog_text() -> str:
     return "\n".join(f"- {name}: {desc}" for name, (_, _, desc) in SKILL_REGISTRY.items())
 
 
+# Per-skill result caps applied AT THE SOURCE when the orchestrator calls a skill,
+# so each skill's own count/note fields stay consistent with the list it returns
+# (a few representative records + accurate totals) and the response stays compact.
+_ORCH_LIMITS: dict[str, dict[str, Any]] = {
+    "contamination": {"max_results": 5},
+    "water": {"max_stations": 5},
+    "proximity": {"max_results": 5},
+    "occurrences": {"top": 5},
+    "inaturalist": {"per_page": 5, "top_species": 5},
+    "research": {"count": 5},
+}
+
+
 def run_skill(
     name: str,
     *,
@@ -94,15 +107,16 @@ def run_skill(
     if entry is None:
         return {"ok": False, "skill": name, "error": f"unknown skill: {name}"}
     fn, kind, _ = entry
+    limits = _ORCH_LIMITS.get(name, {})
     try:
         if kind == "geocode":
             return fn(query or "")
         if kind == "research":
-            return fn(query or "", api_key=brave_key)
+            return fn(query or "", api_key=brave_key, **limits)
         if lat is None or lon is None:
             return {"ok": False, "skill": name, "error": "this skill requires coordinates"}
         if kind == "point_taxon" and taxon:
-            return fn(lat, lon, taxon=taxon)
-        return fn(lat, lon)
+            return fn(lat, lon, taxon=taxon, **limits)
+        return fn(lat, lon, **limits)
     except Exception as exc:  # last-resort guard; skills already handle their own errors
         return {"ok": False, "skill": name, "error": f"{type(exc).__name__}: {exc}"}
