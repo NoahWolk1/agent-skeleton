@@ -226,18 +226,131 @@ _SYNTH_SYSTEM = (
 )
 
 
+# Per-skill one-line summarizers for the no-LLM fallback: pull the salient facts
+# so a keyless / rate-limited response still reads like a real answer.
+def _f_satellite(r):
+    lc = r.get("land_cover") or {}
+    cat = f" ({lc['habitat_category']})" if lc.get("habitat_category") else ""
+    return f"Land cover: {lc.get('class') or 'unknown'}{cat}"
+
+def _f_construction(r):
+    z, lu = r.get("local_zoning"), (r.get("land_use") or [])
+    parts = []
+    if z:
+        parts.append(f"zoning {z.get('label')}")
+    if lu:
+        parts.append("land use " + ", ".join(sorted({o.get("value") for o in lu if o.get("value")})[:4]))
+    return "Land use: " + ("; ".join(parts) if parts else "nothing mapped nearby")
+
+def _f_species(r):
+    esa, ch, mb = r.get("esa_species") or [], r.get("critical_habitat") or [], r.get("migratory_birds") or []
+    if not esa and not mb:
+        return "ESA species: none reported for this area"
+    seg = (f"ESA-listed species ({len(esa)}): " + ", ".join(s.get("common_name") for s in esa[:5] if s.get("common_name"))) if esa else "No ESA species"
+    if ch:
+        seg += f"; critical habitat for {len(ch)}"
+    if mb:
+        seg += f"; {len(mb)} migratory birds"
+    return seg
+
+def _f_occurrences(r):
+    if r.get("queried_taxon"):
+        n = r.get("occurrence_count")
+        return f"'{r['queried_taxon']}': {'present' if r.get('present') else 'not found'}" + (f" ({n} records)" if n else "")
+    sp = r.get("top_species") or r.get("species") or []
+    top = ", ".join((s.get("common_name") or s.get("scientific_name") or "") for s in sp[:4])
+    return f"Species recorded nearby (GBIF): {r.get('total_occurrences', 0)} records" + (f"; top: {top}" if top else "")
+
+def _f_protected(r):
+    a = (r.get("areas") or [{}])[0]
+    if not a.get("name"):
+        return f"Protected areas: none within ~{r.get('search_buffer_m', '?')} m"
+    return f"Protected area: {a.get('name')} ({a.get('designation')}, GAP {a.get('gap_status_code')}, {a.get('public_access')})"
+
+def _f_water(r):
+    g, wq = (r.get("streamflow_gages") or []), (r.get("water_quality_stations") or {})
+    seg = []
+    if g:
+        seg.append(f"nearest gage {g[0].get('site_name')} {g[0].get('streamflow_cfs')} cfs")
+    seg.append(f"{wq.get('total_within_radius', 0)} water-quality stations nearby")
+    return "Water: " + "; ".join(seg)
+
+def _f_air(r):
+    return f"Air quality: US AQI {r.get('us_aqi')} ({r.get('aqi_category')})"
+
+def _f_soil(r):
+    mu, dc = r.get("map_unit") or {}, r.get("dominant_component") or {}
+    if not mu:
+        return "Soil: no SSURGO survey data at this point"
+    return f"Soil: {mu.get('name')}" + (f"; dominant {dc.get('name')} ({dc.get('taxonomic_order')})" if dc.get("name") else "")
+
+def _f_wildfire(r):
+    if not r.get("burned"):
+        return "Wildfire history: no recorded fire at this point"
+    f0 = (r.get("fires") or [{}])[0]
+    return f"Wildfire history: burned — most recent {r.get('most_recent_year')} ({f0.get('incident')})"
+
+def _f_wetlands(r):
+    if not r.get("is_wetland"):
+        return "Wetlands: not a mapped NWI wetland here"
+    w = (r.get("wetlands") or [{}])[0]
+    return f"Wetland: {w.get('type')} ({w.get('code')})"
+
+def _f_flood(r):
+    fz = r.get("flood_zone")
+    if not fz:
+        return "FEMA flood zone: none mapped here"
+    return f"FEMA flood zone: {fz}" + (" (Special Flood Hazard Area)" if r.get("in_special_flood_hazard_area") else "")
+
+def _f_contamination(r):
+    s = r.get("summary") or {}
+    return (f"EPA-regulated facilities within {r.get('radius_miles')} mi: {s.get('total_facilities')} "
+            f"(CAA {s.get('clean_air_act_facilities')}, CWA {s.get('clean_water_act_facilities')}, "
+            f"RCRA {s.get('rcra_hazardous_waste_facilities')}); enforcement actions: {s.get('formal_enforcement_actions')}")
+
+def _f_elevation(r):
+    return f"Elevation: {r.get('elevation_meters')} m" + (f", slope {r.get('slope_percent')}%" if r.get("slope_percent") is not None else "")
+
+def _f_proximity(r):
+    c = r.get("counts_by_category") or {}
+    return "Nearby features: " + (", ".join(f"{v} {k}" for k, v in c.items()) or "none mapped")
+
+def _f_research(r):
+    res = r.get("results") or []
+    return f"Web/document search: {len(res)} results" + (f"; e.g. {res[0].get('title')}" if res else "")
+
+def _f_inaturalist(r):
+    sp = r.get("top_species") or []
+    top = ", ".join((s.get("common_name") or s.get("scientific_name") or "") for s in sp[:4])
+    return f"Recent photo observations (iNaturalist): {r.get('total_observations', 0)}" + (f"; top: {top}" if top else "")
+
+_SKILL_SUMMARY = {
+    "satellite": _f_satellite, "construction": _f_construction, "species_habitat": _f_species,
+    "occurrences": _f_occurrences, "protected_areas": _f_protected, "water": _f_water,
+    "air_quality": _f_air, "soil": _f_soil, "wildfire": _f_wildfire, "wetlands": _f_wetlands,
+    "flood_zone": _f_flood, "contamination": _f_contamination, "elevation": _f_elevation,
+    "proximity": _f_proximity, "research": _f_research, "inaturalist": _f_inaturalist,
+}
+
+
 def _template_synthesis(location_str: str, facts: dict[str, dict]) -> str:
+    """No-LLM fallback: a readable per-skill summary of the gathered facts, so a
+    keyless or rate-limited response is still useful (not just 'see output')."""
     lines = [f"Findings for {location_str}:", ""]
     for name, res in facts.items():
-        src = res.get("source", "")
-        if not res.get("ok", False):
-            lines.append(f"- {name} ({src}): could not retrieve — {res.get('error', 'unknown error')}")
-        elif res.get("note"):
-            lines.append(f"- {name} ({src}): {res['note']}")
-        else:
-            lines.append(f"- {name} ({src}): data retrieved (see structured output).")
+        if name == "geocode":
+            continue
+        if not res.get("ok", True):
+            lines.append(f"- {name}: could not retrieve — {res.get('error', 'error')}")
+            continue
+        fmt = _SKILL_SUMMARY.get(name)
+        try:
+            summary = fmt(res) if fmt else (res.get("note") or "data retrieved")
+        except Exception:
+            summary = res.get("note") or "data retrieved"
+        lines.append(f"- {summary}  (source: {res.get('source', '')})")
     lines.append("")
-    lines.append("(LLM synthesis was unavailable, so this is a direct listing of skill results.)")
+    lines.append("(Summarized directly from the retrieved source data.)")
     return "\n".join(lines)
 
 
