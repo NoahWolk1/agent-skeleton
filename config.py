@@ -16,7 +16,7 @@ DEFAULT_PORT = 9110               # pick a free port
 
 # --- LLM ------------------------------------------------------------------
 DEFAULT_MODEL = "gpt-4o-mini"     # hosted model name, or your vLLM --served-model-name
-MAX_TOOL_STEPS = 4                # cap on tool-call loop iterations
+MAX_TOOL_STEPS = 8                # cap on tool-call loop iterations
 
 # --- Paths ----------------------------------------------------------------
 PACKAGE_DIR = Path(__file__).resolve().parent

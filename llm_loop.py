@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from typing import TYPE_CHECKING, Any, Callable
 
 from .config import MAX_TOOL_STEPS, env_model
@@ -110,6 +111,17 @@ def run_tool_loop(
 
         request_kwargs["messages"] = messages
         response = client.chat.completions.create(**request_kwargs)
+    else:
+        # Budget exhausted without the model finishing. If it still wants
+        # tools, the answer is truncated — warn rather than fail silently.
+        if _extract_tool_calls(response):
+            warnings.warn(
+                f"run_tool_loop hit max_steps ({max_steps}) with tool calls "
+                "still pending; the answer may be truncated. Consider raising "
+                "MAX_TOOL_STEPS.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     return _final_text(response), tool_log
 
