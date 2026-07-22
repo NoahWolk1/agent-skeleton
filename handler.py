@@ -295,6 +295,19 @@ def _confidence(facts: dict[str, dict], validator_valid: bool | None, llm_used: 
     return level, rationale
 
 
+def _trim_lists(obj: Any, cap: int) -> Any:
+    """Recursively cap long lists so responses/LLM-prompts stay compact.
+
+    Skills already carry totals/notes (e.g. 'showing 25 of 61'), so truncating
+    the item lists loses no summary information — just the long tail of records.
+    """
+    if isinstance(obj, dict):
+        return {k: _trim_lists(v, cap) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_trim_lists(v, cap) for v in obj[:cap]]
+    return obj
+
+
 def _collect_sources(facts: dict[str, dict]) -> list[dict[str, Any]]:
     out = []
     for name, res in facts.items():
@@ -386,7 +399,10 @@ class GeoOrchestratorHandler(AgentHandler):
         ) or f"{lat}, {lon}"
 
         # 4. SYNTHESIZE
-        facts_json = json.dumps(facts, default=str)[:120_000]
+        # Feed the LLM a COMPACTED view (summaries + a few items per list), not
+        # every raw record — keeps the prompt small/reliable and cheap. Totals
+        # and notes live in scalar fields, so they survive the trim.
+        facts_json = json.dumps(_trim_lists(facts, 5), default=str)[:60_000]
         draft = None
         if client:
             draft = _llm_text(
@@ -430,5 +446,7 @@ class GeoOrchestratorHandler(AgentHandler):
             "skills_used": list(facts.keys()),
             "sources": _collect_sources(facts),
             "llm_used": llm_used,
-            "structured": facts,  # machine-readable raw skill outputs
+            # machine-readable skill outputs, with long record lists capped (each
+            # skill still reports its own totals/notes) to keep the artifact compact
+            "structured": _trim_lists(facts, 10),
         }
