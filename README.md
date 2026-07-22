@@ -206,12 +206,12 @@ python -m agent_skeleton.serve serve-handler --file handler.py --class GeoOrches
 ## Starter-repo feedback
 
 Full write-up with reproduction steps and suggested fixes: **[`REPO_FEEDBACK.md`](REPO_FEEDBACK.md)**.
-Filed issues (on this fork — the upstream `washu-dev/agent-skeleton` is behind org SAML):
 
-1. [Path-B sibling package omitted by non-editable `pip install .`](https://github.com/NoahWolk1/agent-skeleton/issues/1) — deploy-time `ModuleNotFoundError` (high).
-2. [`MAX_TOOL_STEPS = 4` silently truncates the Path-A tool loop](https://github.com/NoahWolk1/agent-skeleton/issues/2) (medium).
-3. [Credential-access example inconsistent + null-value footgun](https://github.com/NoahWolk1/agent-skeleton/issues/3) (`base.py` vs `INTEGRATION_GUIDE` §7) (medium).
+**Fixes contributed back as PRs to the upstream template (`washu-dev/agent-skeleton`):**
+1. [washu-dev#33](https://github.com/washu-dev/agent-skeleton/pull/33) — Path-B sibling package omitted by non-editable `pip install .` → deploy-time `ModuleNotFoundError` (high-impact / setup-breaking).
+2. [washu-dev#32](https://github.com/washu-dev/agent-skeleton/pull/32) — credential-access example crashes on a null value (`base.py` vs `INTEGRATION_GUIDE` §7).
 
-Plus minor friction (Starlette deprecation warning from the pinned `a2a-sdk`;
-`serve-handler` not loading `.env`; no pre-serve structural check for Path B) —
-see `REPO_FEEDBACK.md`.
+A third fix (`MAX_TOOL_STEPS = 4` silently truncates the Path-A tool loop) is
+ready on branch `fix/max-tool-steps`. Each finding also has a reproducible
+issue on this fork's tracker, plus minor friction notes — all in
+[`REPO_FEEDBACK.md`](REPO_FEEDBACK.md).
