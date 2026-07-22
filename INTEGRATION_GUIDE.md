@@ -118,6 +118,7 @@ Rules and gotchas:
 - **The entry file must be at the archive root**, not nested in a subfolder. The classic mistake: zipping a *folder* (so everything lands under `my-project/…`) instead of zipping its *contents*. Check with `unzip -l yourfile.zip` — you should see `handler.py` on its own line, not `my-project/handler.py`.
 - **Reserved root names** you cannot use at the top level: `agent_skeleton/`, `Dockerfile`, and any `*.card.json` — the system generates those.
 - **Exclude junk:** `.venv/`, `__pycache__/`, `.DS_Store`, `*.egg-info/`, and anything with secrets (`.env`).
+- **List every package your handler imports.** If `handler.py` imports a sibling package you ship (e.g. `from skills.foo import ...`), add that package to `[tool.setuptools].packages` in `pyproject.toml`. `pip install -e .` puts the repo root on `sys.path` so it "works" locally, but a non-editable `pip install .` (what the builder runs) omits the package unless it is listed — and the handler, loaded by path from another working directory, then fails with `ModuleNotFoundError` at deploy time.
 - **Size/safety limits:** archives that are too large (default caps around ~2000 files / ~25 MB uncompressed), contain symlinks, or try to escape the folder are rejected before anything is written.
 
 ---
