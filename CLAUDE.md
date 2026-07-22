@@ -41,7 +41,7 @@ concern, out of scope for this template.)
 | `prompt.py` | **WRITE** | `SYSTEM_PROMPT` + `normalize_result()` |
 | `agent.card.json` | **WRITE** | skills, url, version |
 | `config.py` | edit defaults | name, host/port, model |
-| `tool.py` | copy | `@tool` + `collect_tools`: derive schemas from typed functions |
+| `tool_engine.py` | copy | `@tool` + `collect_tools`: derive schemas from typed functions |
 | `llm_loop.py` | copy | generic loop; `run_agent()` wires prompt/tools/dispatch |
 | `spec.py` | copy | `AgentSpec` seam (prompt+tools as data) + `default_demo_spec` + `llm_wrapper_spec` |
 | `executor.py` | copy | `SkeletonAgentExecutor.execute()` + A2A I/O |
@@ -73,7 +73,7 @@ engine and run `serve check` with no network and no `a2a-sdk` installed.
 
 ## 5. Schemas are derived (drift is impossible)
 
-`@tool` (in `tool.py`) derives each tool's schema from its typed signature +
+`@tool` (in `tool_engine.py`) derives each tool's schema from its typed signature +
 docstring, so there is ONE source of truth and the schema cannot disagree with the
 function. `validate_tool_registry()` (in `tools.py`) remains as a safety net for any
 HAND-WRITTEN schemas (e.g. the endpoint-wrapper tools, or a registry assembled by

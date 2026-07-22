@@ -148,7 +148,7 @@ questions to answer about your code, dependencies, credentials, and a worked exa
 
 | File | Role |
 |---|---|
-| `tool.py` | `@tool` + `collect_tools` — derive a tool's schema from its typed function |
+| `tool_engine.py` | `@tool` + `collect_tools` — derive a tool's schema from its typed function |
 | `llm_loop.py` | the generic Chat-Completions tool loop (`run_tool_loop`, `run_agent`) |
 | `spec.py` | `AgentSpec` — prompt + tools as data; one engine serves many agents |
 | `executor.py` | `SkeletonAgentExecutor` — the Path-A A2A boundary |

@@ -30,7 +30,7 @@ Exposed API:
 from __future__ import annotations
 
 from .spec import AgentSpec, default_demo_spec, llm_wrapper_spec
-from .tool import collect_tools, tool
+from .tool_engine import collect_tools, tool
 
 __all__ = [
     "tool",

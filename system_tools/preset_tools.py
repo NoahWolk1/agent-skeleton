@@ -4,7 +4,7 @@ A creator selects tools by name (e.g. ``["calculator", "current_time"]``) via
 ``spec.llm_wrapper_spec``; the resolver turns those names into the ``(schema, fn)``
 pairs the frozen engine runs.
 
-Each tool is defined with ``@tool`` (see ``tool.py``), so its schema is DERIVED from
+Each tool is defined with ``@tool`` (see ``tool_engine.py``), so its schema is DERIVED from
 the typed function — the same explicit, driftless definition pattern the template
 recommends for user tools. The starter set is deliberately PURE and dependency-free
 (no network, no secrets, no filesystem) so it needs no security review.
@@ -17,7 +17,7 @@ import operator
 from datetime import datetime, timezone
 from typing import Annotated, Any, Callable
 
-from ..tool import tool
+from ..tool_engine import tool
 
 ToolFn = Callable[..., dict[str, Any]]
 
