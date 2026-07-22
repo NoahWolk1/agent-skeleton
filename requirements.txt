@@ -1,0 +1,11 @@
+# Runtime dependencies for the GeoContext environmental-research agent.
+#
+# The 17 skills (skills/) are STDLIB-ONLY — no third-party packages, and no
+# system binaries. These dependencies cover only (a) the OpenAI GPT client the
+# orchestrator uses and (b) the A2A server runtime needed to serve the agent.
+
+openai>=1.40                    # OpenAI GPT client (planning / synthesis / validation)
+a2a-sdk[http-server]==0.3.2     # A2A server runtime — only needed to SERVE
+uvicorn>=0.30                   # ASGI server — only needed to SERVE
+
+# No system (apt) packages required. No GPU / large-RAM requirements.

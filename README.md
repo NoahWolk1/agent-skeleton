@@ -1,164 +1,194 @@
-# agent_skeleton
+# GeoContext — a geospatial environmental-research agent
 
-A small, copy-to-start template for building an **A2A agent**. It hands you the
-~70% of every agent that is plumbing (the LLM loop, the A2A server wiring, request
-parsing, the dual-channel response) so you only write the part that is *your* agent.
+**Give it a location and an environmental question; it gathers evidence from 17
+authoritative geospatial data sources, synthesizes a cited answer, checks itself
+for fabrication, and returns both a human-readable answer and structured data.**
 
-There are **two main ways** to build on it:
-
-- **Path A — an LLM tool loop.** You supply a system prompt + a set of tools; a
-  frozen engine runs the model-calls-tools loop. Best when the agent's value is
-  reasoning: deciding which tool to call, chaining calls, synthesizing an answer.
-- **Path B — a custom handler.** You already have working code; you wrap it by
-  subclassing `AgentHandler` and implementing one method. Best when you just want
-  existing code reachable as an agent.
-
-> There's also an optional third path — front an existing HTTP/API endpoint with an
-> LLM loop, writing no code — in the self-contained
-> [`endpoint_wrapper/`](endpoint_wrapper/README.md) subpackage.
-
-When your agent is ready, [`HACKATHON_CHEATSHEET.md`](HACKATHON_CHEATSHEET.md) covers
-what to include (README, dependencies, secrets) and how to hand it over.
+> Example: *"What habitat is at these camera-trap coordinates 44.4237, −110.5885,
+> and what protected/listed species might be there?"* →
+> Evergreen Forest (NLCD) inside **Yellowstone National Park** (PAD-US, GAP‑1);
+> Canada Lynx, Grizzly bear, wolverine may occur (USFWS IPaC); 28k nearby species
+> records incl. bison & elk (GBIF/iNaturalist) — each claim linked to its source.
 
 ---
 
-## Install
+## The 6 questions
 
-The import package is `agent_skeleton`; this folder is `agent-skeleton`. Install it
-editable so the import name resolves:
+**1. What research workflow does it improve?**
+Location-grounded environmental fieldwork and site assessment. A researcher with a
+coordinate (a camera-trap, a study plot, a neighborhood, a proposed site) normally
+opens a dozen separate portals — EPA ECHO, USFWS IPaC, GBIF, USGS, FEMA, NLCD,
+PAD-US — copies the coordinate into each, and hand-assembles the picture. This
+agent does all of that in one request and returns a synthesized, **cited** brief
+plus reusable structured data.
 
+**2. Who at WashU would benefit?**
+Environmental & ecology researchers, field biologists (camera-trap / habitat
+studies), the Living Earth Collaborative, environmental-health and public-health
+researchers, urban-ecology and civil/environmental engineering groups, GIS/
+data-science staff, and grad students doing site or literature scoping. It is
+grounded in St. Louis (bonus county zoning) but works **nationwide** (US) and, for
+several sources, globally.
+
+**3. What does it do that a general chatbot would not?**
+It **retrieves live data from primary sources** instead of recalling from memory,
+and it **cites every fact** (or says "no data"). A general chatbot will happily
+invent species lists, facility names, or flood zones; this agent only reports what
+the APIs return, attributes each finding to its source URL, runs a **validation
+pass** against the gathered facts, and reports a **confidence** level.
+
+**4. What is it designed to handle well?**
+Location-anchored environmental questions such as:
+- "What habitat / land cover is at these camera-trap coordinates?"
+- "What ESA-listed species or critical habitat are near this site?"
+- "What contamination sources / regulated facilities are near this neighborhood?"
+- "Is this area in a flood zone / wetland / protected area?"
+- "What species have actually been observed near here?" (with photos)
+- "What's the terrain, soil, water, and air quality at this point?"
+- "Is this area suitable habitat for \<species\>?" (combines several skills)
+
+It accepts **coordinates or a place name** (which it geocodes), plans which of the
+17 skills are relevant, runs them, and synthesizes.
+
+**5. What tools, APIs, and data sources does it use?**
+See the [skill catalog](#skill-catalog) below — 17 skills over EPA ECHO, USFWS
+IPaC & NWI, GBIF, iNaturalist, USGS (NLCD/3DEP/NWIS), EPA/USGS Water Quality
+Portal, USGS PAD-US, NIFC, FEMA NFHL, USDA SSURGO, OpenStreetMap (Nominatim &
+Overpass), Open-Meteo, and Brave Search. The orchestrator uses the **OpenAI API
+(GPT)** to plan, synthesize, and validate.
+
+**6. How does it handle uncertainty, privacy, credentials, and limitations?**
+- **Uncertainty:** every response carries a `confidence` level + rationale based on
+  how many skills returned usable data; the answer states limitations plainly
+  (modeled vs. measured, US-only coverage, "near" vs "at").
+- **No fabrication:** the answer is built **only** from skill outputs; a second GPT
+  pass validates it against those facts and re-writes once if it finds unsupported
+  claims. Skills report "no data" honestly and never guess (e.g. a point outside
+  NLCD returns *no cover*, not a made-up class).
+- **Privacy/credentials:** no secrets are committed. API keys are read from the
+  per-user **credential context** (`credentials.openai_api_key`,
+  `credentials.brave_api_key`) or environment variables; see
+  [`.env.example`](.env.example). Nothing is logged that contains a key.
+- **Scope guard:** non-geospatial requests are politely **declined**; missing
+  locations prompt for one.
+- **Limitations:** several sources are US-only (flagged per skill); OpenStreetMap
+  coverage is thin outside cities; air quality is modeled (CAMS), not measured;
+  EPA ECHO is a regulatory/compliance record, not a contamination measurement;
+  FEMA/zoning are regulatory designations, not live forecasts.
+
+---
+
+## Input / Output
+
+**Input** (A2A text message): a natural-language request. May include coordinates
+(`44.42, -110.59`) or a place name (`Forest Park, St. Louis`). Attached files are
+accepted but not required.
+
+**Output** — a dict whose **`answer`** (required) is the human-readable brief; the
+rest is machine-readable structured data returned alongside it:
+
+```jsonc
+{
+  "answer": "…cited, human-readable brief…",
+  "confidence": "high | medium | low | n/a",
+  "confidence_rationale": "3/4 skills returned usable data; validation passed.",
+  "location": {"latitude": 44.42, "longitude": -110.59, "display_name": "…"},
+  "skills_used": ["satellite", "species_habitat", "occurrences", "protected_areas"],
+  "sources": [{"skill": "...", "source": "...", "url": "https://..."}],
+  "llm_used": true,
+  "structured": { "<skill>": { …raw skill output… } }
+}
+```
+
+---
+
+## Deploying it (Option B — custom handler)
+
+| Field | Value |
+|---|---|
+| Handler type | Custom (Python) |
+| **Entry file** | `handler.py` |
+| **Class name** | `GeoOrchestratorHandler` |
+| Python version | 3.11+ |
+| Requirements | see [`requirements.txt`](requirements.txt) (`openai`; `a2a-sdk[http-server]`, `uvicorn` to serve) |
+| System packages | **none** |
+| Required credentials | `openai_api_key` (LLM pipeline); `brave_api_key` (optional, research skill) |
+
+The importable code (`skills/`) sits at the repo root alongside `handler.py`.
+
+**Run locally:**
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e .
+pip install -e .                       # or: pip install -r requirements.txt
+cp .env.example .env                   # add your OPENAI_API_KEY (and BRAVE_API_KEY)
+python -m agent_skeleton.serve serve-handler --file handler.py --class GeoOrchestratorHandler --port 9110
 ```
 
-The Path-A **engine** and the `serve check` command run on the standard library
-alone — you can validate an agent without installing anything. `a2a-sdk` + `uvicorn`
-(pulled by `pip install -e .`) are only needed to actually **serve**.
+**Configuration (env vars):** `OPENAI_API_KEY` (or credential context),
+`OPENAI_MODEL`/`AGENT_MODEL` (default `gpt-4o-mini`), optional `OPENAI_BASE_URL`,
+`BRAVE_API_KEY`. Without an OpenAI key the agent still runs via a keyword/heuristic
+planner + templated synthesis (degraded, capped at `medium` confidence).
 
 ---
 
-## Path A — build an LLM tool loop
+## Skill catalog
 
-Edit four "write" files; leave everything else alone:
+Each skill is stdlib-only, returns a shared contract (`ok`/`source`/`…`), cites its
+source URL, and reports "no data" honestly.
 
-| File | You write |
-|---|---|
-| `tool_schemas.py` | `TOOL_SCHEMAS` — a JSON description of each tool (OpenAI Chat Completions shape) |
-| `tools.py` | one Python function per tool + the `TOOL_REGISTRY` `{name: fn}` map |
-| `prompt.py` | `SYSTEM_PROMPT` + `normalize_result()` (the stable output shape) |
-| `agent.card.json` | your agent's name, url, and skills |
-
-The rules that keep a tool correct (checked for you — see below):
-
-- each function's keyword args are named **exactly** like its schema properties;
-- every **optional** property (not in `required`) has a Python default;
-- each function returns a JSON-able dict.
-
-Then verify and run:
-
-```bash
-python -m agent_skeleton.serve check       # validates schemas <-> functions (no deps, no LLM)
-python -m agent_skeleton.serve serve-a2a   # runs the agent over A2A (needs a2a-sdk + uvicorn)
-```
-
-`serve check` is the safety net: it fails fast if a schema and its function
-disagree, in both directions, so you never discover a mismatch at runtime.
-
-For an LLM: set `OPENAI_API_KEY` (any non-empty placeholder for a local vLLM) and
-optionally `OPENAI_BASE_URL`. Against vLLM, launch it with `--enable-auto-tool-choice
---tool-call-parser <parser>`, or the model silently stops calling tools.
-
-### Path A without editing the template in place
-
-If you'd rather not edit the module globals, build an `AgentSpec` in your own script:
-
-```python
-from agent_skeleton import llm_wrapper_spec
-spec = llm_wrapper_spec(
-    name="My Agent",
-    system_prompt="You are ...",
-    preset_tools=["calculator", "current_time"],   # from system_tools/preset_tools
-)
-# from agent_skeleton.serve import create_app, load_agent_card
-# app = create_app(load_agent_card("agent.card.json"), spec=spec)  # serve under uvicorn
-```
+| Skill | Answers | Source | Scope | Key |
+|---|---|---|---|---|
+| `satellite` | land cover / habitat type | NLCD (USGS/MRLC) | US (CONUS) | — |
+| `construction` | land use + local zoning/flood-plain | OpenStreetMap (+ STL County) | 🌍 / STL bonus | — |
+| `species_habitat` | ESA species, critical habitat, migratory birds | USFWS IPaC | US | — |
+| `occurrences` | species recorded nearby / is species X present | GBIF | 🌍 | — |
+| `inaturalist` | recent species observations **with photos** | iNaturalist | 🌍 | — |
+| `protected_areas` | parks/refuges/easements + GAP status | USGS PAD-US | US | — |
+| `wetlands` | mapped wetland type | USFWS NWI | US | — |
+| `wildfire` | recorded fire history at the point | NIFC | US | — |
+| `flood_zone` | FEMA flood zone | FEMA NFHL | US | — |
+| `contamination` | regulated facilities + compliance | EPA ECHO | US | — |
+| `air_quality` | current AQI + pollutants (modeled) | Open-Meteo (CAMS) | 🌍 | — |
+| `water` | streamflow gages + water-quality stations | USGS NWIS + WQP | US | — |
+| `soil` | soil type/drainage/taxonomy/farmland | USDA SSURGO | US | — |
+| `elevation` | elevation + estimated slope | USGS 3DEP | US | — |
+| `proximity` | nearby OSM features (industrial, water, parks…) | OSM Overpass | 🌍 | — |
+| `geocode` | place name/address → coordinates | OSM Nominatim | 🌍 | — |
+| `research` | web / government-document search | Brave Search | 🌍 | ✔ Brave |
 
 ---
 
-## Path B — wrap your own code as a handler
+## How it works
 
-You do **not** rewrite your code — you add a thin adapter class:
-
-```python
-from agent_skeleton import AgentHandler, FileInput
-
-class MyHandler(AgentHandler):
-    async def handle_structured(self, user_input, files=[], context=None) -> dict:
-        # ... call your real code ...
-        return {"answer": "the human-readable reply"}   # "answer" is REQUIRED
+```
+request → PLAN (GPT: geospatial? location? which skills?)
+        → RESOLVE location (geocode a place name if needed)
+        → RUN chosen skills concurrently (blocking calls in threads)
+        → SYNTHESIZE (GPT: cited answer from the facts only)
+        → VALIDATE (GPT: unsupported claims? → one re-synthesis)
+        → RETURN {answer, confidence, sources, structured}
 ```
 
-- `user_input` is the caller's text; `files` are attached files (`.bytes`,
-  `.name`, `.as_tempfile()`); declare a `context` parameter to receive per-user
-  credentials.
-- If your code is blocking, wrap it in `await asyncio.to_thread(...)` so the
-  heartbeat keeps flowing.
-
-Run it locally:
-
-```bash
-python -m agent_skeleton.serve serve-handler --file handler.py --class MyHandler --port 9110
-```
-
-The framework gives you, for free: A2A request parsing, base64 file decoding into
-`FileInput`, a heartbeat (so long calls don't time out), a runtime cap, credential
-injection, error handling, and the dual machine+human response. See
-[`INTEGRATION_GUIDE.md`](INTEGRATION_GUIDE.md) for the full walkthrough (the six
-questions to answer about your code, dependencies, credentials, and a worked example).
-
----
-
-## File map — where to edit, where not to
-
-**Write (Path A):** `tool_schemas.py`, `tools.py`, `prompt.py`, `agent.card.json`, `config.py` (defaults).
-**Write (Path B):** your `handler.py` (subclass `AgentHandler`).
-**Copy — the frozen plumbing, rarely edited:**
-
-| File | Role |
-|---|---|
-| `llm_loop.py` | the generic Chat-Completions tool loop (`run_tool_loop`, `run_agent`) |
-| `spec.py` | `AgentSpec` — prompt + tools as data; one engine serves many agents |
-| `executor.py` | `SkeletonAgentExecutor` — the Path-A A2A boundary |
-| `handler_executor.py` | `HandlerExecutor` — wraps any `AgentHandler` for A2A (heartbeat, runtime cap, credentials) |
-| `base.py` | `AgentHandler` + `FileInput` (the Path-B contract) |
-| `a2a_runtime.py` | a2a-sdk import guard + `data_part`/`text_part`/`task_updater` |
-| `serve.py` | `create_app` + `check` / `serve-a2a` / `serve-handler` |
-
----
-
-## How it works (concepts)
-
-- **Stateless tool loop.** Chat Completions has no server-side memory, so the loop
-  holds the whole `messages` history locally and resends it each step, appending the
-  assistant's tool-call message *before* the tool results. Tool calls are read from
-  the model's typed `tool_calls` field — never regex-parsed.
-- **Dual-channel response.** Every reply carries a machine-readable `DataPart`
-  (structured output the planner reads) *and* a human-readable text message.
-- **The alignment check** (`tools.validate_tool_registry`) reconciles each tool
-  schema against its function signature; it runs in `create_app` and `serve check`.
-  (A tool that declares `**kwargs` opts out of the check.)
-
----
+`skills/` are the data sources; `skills/registry.py` is the single dispatch point;
+`handler.py` is the orchestrator (the A2A entry point). The skills know nothing
+about A2A and are unit-testable offline.
 
 ## Testing
 
 ```bash
-python -m agent_skeleton.serve check                        # schema/function alignment (stdlib only)
-python -m pytest agent_skeleton/tests -q                    # engine tests
-python -m pytest agent_skeleton/endpoint_wrapper/tests -q   # optional endpoint feature
+python -m unittest discover -s skills/tests -p 'test_*.py'   # 104 offline tests, no network
+python -m agent_skeleton.serve serve-handler --file handler.py --class GeoOrchestratorHandler
 ```
 
-Because `a2a_runtime.py` degrades to a no-op when `a2a-sdk` is absent, you can import
-the package, unit-test tool bodies, and run `serve check` without installing the SDK;
-only serving requires it.
+## Starter-repo feedback
+
+Concrete, reproducible issues we hit while building on the starter repo (details
+and fixes are documented in the relevant skill modules; being filed as GitHub
+issues/PRs):
+- `MAX_TOOL_STEPS = 4` in `config.py` is too low for any multi-source agent and
+  silently truncates the tool loop.
+- The custom-handler credential doc (`INTEGRATION_GUIDE.md` §7) and `base.py`
+  docstring differ slightly in the exact `context["credentials"]` shape.
+- Two data-source gotchas worth documenting for future cohorts (found the hard
+  way): ArcGIS servers that require a browser `User-Agent` vs. Overpass that
+  *rejects* one, and an ArcGIS service that mislabels its spatial reference.
