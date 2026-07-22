@@ -1,0 +1,79 @@
+{
+  "name": "GeoContext Agent",
+  "description": "Tells you what's around a location: nearby EPA-regulated contamination sources from EPA ECHO, nearby land use / natural features / amenities / industrial infrastructure from OpenStreetMap, ground elevation and slope from USGS, and the FEMA-mapped flood zone.",
+  "url": "http://127.0.0.1:9111/",
+  "version": "0.1.0",
+  "protocolVersion": "0.3.0",
+  "preferredTransport": "JSONRPC",
+  "provider": {
+    "organization": "WashU Digital Transformation Research Corps",
+    "url": "https://echo.epa.gov/"
+  },
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "stateTransitionHistory": true
+  },
+  "defaultInputModes": ["text/plain", "application/json"],
+  "defaultOutputModes": ["text/plain", "application/json"],
+  "securitySchemes": {},
+  "security": [],
+  "skills": [
+    {
+      "id": "contamination/find-sources",
+      "name": "Find nearby contamination sources",
+      "description": "Looks up EPA-regulated facilities near a location (geocoding it first if needed) and reports their compliance/violation status - potential contamination sources.",
+      "tags": ["contamination/find-sources", "environmental", "epa", "geospatial", "read"],
+      "examples": [
+        "What are potential sources of contamination near 5700 Arsenal St, St. Louis, MO?",
+        "Are there any EPA violators within a mile of these camera trap coordinates: 38.627, -90.1994?",
+        "List regulated facilities near the Cahokia Mounds site and flag any significant violators."
+      ],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["text/plain", "application/json"],
+      "security": []
+    },
+    {
+      "id": "zone/analyze-proximity",
+      "name": "Analyze proximity to zone",
+      "description": "Pulls nearby land-use, natural, amenity, leisure, and industrial features from OpenStreetMap (via Overpass), with distances - geocodes the location first if it's given as a place name.",
+      "tags": ["zone/analyze-proximity", "geospatial", "openstreetmap", "zoning", "read"],
+      "examples": [
+        "What's near Forest Park in St. Louis — is it near any industrial zones?",
+        "Is this area suitable habitat for a species that needs wetland: 38.627, -90.1994?",
+        "What zone (residential, commercial, industrial) is this camera trap location in?"
+      ],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["text/plain", "application/json"],
+      "security": []
+    },
+    {
+      "id": "terrain/elevation-slope",
+      "name": "Look up elevation and slope",
+      "description": "Looks up ground elevation via USGS EPQS (3DEP) and estimates local slope from nearby sample points - geocodes the location first if it's given as a place name.",
+      "tags": ["terrain/elevation-slope", "geospatial", "usgs", "elevation", "read"],
+      "examples": [
+        "What's the elevation and slope at 38.627, -90.1994?",
+        "Is this camera trap site on a ridge or in a valley?",
+        "How steep is the terrain near Forest Park in St. Louis?"
+      ],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["text/plain", "application/json"],
+      "security": []
+    },
+    {
+      "id": "flood/zone-lookup",
+      "name": "Look up FEMA flood zone",
+      "description": "Looks up the FEMA-mapped flood hazard zone at a location via the National Flood Hazard Layer - geocodes the location first if it's given as a place name.",
+      "tags": ["flood/zone-lookup", "geospatial", "fema", "flood-hazard", "read"],
+      "examples": [
+        "What FEMA flood zone is 5700 Arsenal St, St. Louis, MO in?",
+        "Is this site in a Special Flood Hazard Area: 38.627, -90.1994?",
+        "What's the base flood elevation near the riverfront in St. Louis?"
+      ],
+      "inputModes": ["text/plain", "application/json"],
+      "outputModes": ["text/plain", "application/json"],
+      "security": []
+    }
+  ]
+}
